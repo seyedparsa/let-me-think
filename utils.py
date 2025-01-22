@@ -60,7 +60,7 @@ def dfs(graph, start):
 # String Utils
 def get_missions_vocab(num_node_tokens):
     vocab = {str(i): i for i in range(num_node_tokens)}
-    keywords = ['Graph', 'Task', 'Search', 'Path', 'Decision', 'to', 'or']
+    keywords = ['graph', 'task', 'search', 'optimal', 'decision', 'to', 'or']
     puncs = [':', '[', '(', ',', ')', ']']
     special_tokens = ['UNK', 'PAD', '/', 'BOS', 'EOS']
     for idx, token in enumerate(keywords + puncs + special_tokens, start=num_node_tokens):
@@ -68,23 +68,30 @@ def get_missions_vocab(num_node_tokens):
     return vocab
 
 
-def gen_mission_str(mission, node_id, clues):
-    edges = [(node_id[u], node_id[v]) for u, v in mission.graph.edges()]
+def gen_mission_str(mission, **kwargs):
+    node_ids = kwargs.get('node_ids')
+    num_node_tokens = kwargs.get('num_node_tokens')
+    clues = kwargs.get('clues')
+    if node_ids is None:
+        node_ids = np.random.permutation(num_node_tokens)[:mission.number_of_nodes()]
+    num_graph_nodes = mission.graph.number_of_nodes()
+    edges = [(node_ids[u], node_ids[v]) for u, v in mission.graph.edges()]
     if mission.task_type == 'decision':
-        num_graph_nodes = mission.graph.number_of_nodes()
-        edges.append([(node_id[num_graph_nodes + u], node_id[num_graph_nodes + v]) for u, v in mission.phrag.edges()])
+        edges += ([(node_ids[num_graph_nodes + u], node_ids[num_graph_nodes + v]) for u, v in mission.phrag.edges()])
     random.shuffle(edges)     
-    s, t = node_id[mission.start], node_id[mission.target]   
-    mission_str = 'Graph: ' + str(edges) + '\nTask: ' + str(s) + ' to '
+    s, t = node_ids[mission.start], node_ids[mission.target]   
+    mission_str = 'graph: ' + str(edges) + '\ntask: ' + str(s) + ' to '
     if mission.task_type == 'decision':
-        t_1, t_2 = t, node_id[num_graph_nodes]
+        t_1, t_2 = t, node_ids[num_graph_nodes]
         if random.randint(0, 1) == 0:
             t_1, t_2 = t_2, t_1
         mission_str += str(t_1) + ' or ' + str(t_2)
     else:
         mission_str += str(t)
+    mission_str += ' / '
     if clues:
         for clue_type, clue_list in clues.items():
-            clue = [node_id[node] for node in clue_list]
-            mission_str += f' /\n{clue_type}: {clue}'
+            clue = [node_ids[node] for node in clue_list]
+            mission_str += f'\n{clue_type}: {clue}'
     return mission_str
+

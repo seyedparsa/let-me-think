@@ -32,6 +32,12 @@ class Mission(object):
             walk = dfs(self.graph, self.start)
             walk = walk[:walk.index(self.target) + 1]
             return walk
+        
+    def number_of_nodes(self):
+        res = self.graph.number_of_nodes()
+        if self.task_type == 'decision':
+            res += self.phrag.number_of_nodes()
+        return res
 
 
 class MissionTokenizer(PreTrainedTokenizer):
@@ -52,20 +58,35 @@ class MissionTokenizer(PreTrainedTokenizer):
         
 
     def encode(self, mission_str, max_length):
-        tokens = re.findall(r"([A-Za-z]+|\d+|\S)", mission_str)
+        tokens = ['BOS'] + self._tokenize(mission_str) + ['EOS']
         token_ids = [self.vocab[token] for token in tokens]
         # token_ids = token_ids[:max_length]
         # print(mission_str)
         # print(len(token_ids))
         assert(len(token_ids) <= max_length)
-        token_ids += [self.vocab['PAD']] * (max_length - len(token_ids))
+        # token_ids += [self.vocab['PAD']] * (max_length - len(token_ids))
         return token_ids
 
-    def decode(self, token_ids):
-        return ' '.join([self.id_to_token[token_id] for token_id in token_ids])
+    def decode(self, token_ids, **kwargs):
+        return ' '.join([self.id_to_token[int(token_id)] for token_id in token_ids])
     
     def get_vocab(self):
         return self.vocab
+    
+    def _tokenize(self, text):
+        return re.findall(r"([A-Za-z]+|\d+|\S)", text)
+
+    def _convert_token_to_id(self, token):
+        return self.vocab.get(token, self.unk_token_id)
+
+    def _convert_id_to_token(self, index):
+        return self.id_to_token.get(index, self.unk_token)
+
+    def convert_tokens_to_ids(self, tokens):
+        return [self._convert_token_to_id(token) for token in tokens]
+
+    def convert_ids_to_tokens(self, ids):
+        return [self._convert_id_to_token(index) for index in ids]
     
     def save_vocabulary(self, save_directory, filename_prefix=None):
         """Save the vocabulary to a file."""
@@ -85,7 +106,7 @@ class MissionDataCollator(DataCollatorForLanguageModeling):
     def __call__(self, examples):
         batch = super().__call__(examples)
         sep_token_id = self.tokenizer.sep_token_id
-        for i, input_ids in enumerate(batch["input_ids"]):
-            sep_index = input_ids.tolist().index(sep_token_id) + 1
-            batch["labels"][i][:sep_index] = -100
+        for i, input_ids in enumerate(batch["input_ids"]):                        
+            sep_index = input_ids.tolist().index(sep_token_id)
+            batch["labels"][i][:sep_index + 1] = -100
         return batch

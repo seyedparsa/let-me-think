@@ -1,74 +1,26 @@
 seed: 42
-name: cycle_decision
+task: cycle_decision
+teach: optimal
 num_train: 10000
-num_node_tokens: 30
-context_length: 300
-batch_size: 1024
-num_train_epochs: 50
-eval_steps: 500
+num_train_epochs: 500
+num_node_tokens: 8
+context_length: 100
+batch_size: 1000
+eval_steps: 100
 log_steps: 100
 save_steps: 500
 gradient_accumulation_steps: 1
-weight_decay: 0.01
-warmup_steps: 10
+weight_decay: 0.1
+warmup_steps: 100
 lr: 0.001
 lr_scheduler_type: linear
-save_total_limit: 10
+save_total_limit: 5
 model_config: configs/model_config.yaml
 output_dir: /work/hdd/bbjr/pmirtaheri/bepatient/output_dir
 data_dir: /work/hdd/bbjr/pmirtaheri/bepatient/data_dir
 train_file: train_cycle_decision_n100000.json
 val_file: val_cycle_decision_n5000.json
-# --hidden_size 256\
-# --layers 4\
-# --heads 8\
-# --num_epochs 100\
-# --learning_rate ${lr}\
-# --weight_decay 0.1\
-# --train_batch_size 2048\
-# --eval_batch_size 4096\
-# --graph_type 2caterpillars\
-# --chain_of_thought 1\
-# --num_nodes 30\
-# --num_parts 5\
-# --token_pool 30\
-# --num_examples_train ${pretrain_size}\
-# --num_examples_play 500000\
-# --pretrain 1\
-# --selfplay 1\
-# --play_rounds 10\
-
-# return TrainingArguments(
-#     output_dir='./output_dir/' + wandb_name,
-#     do_train=True,
-#     do_eval=True,
-#     per_device_train_batch_size=args.train_batch_size,
-#     per_device_eval_batch_size=args.eval_batch_size,
-#     gradient_accumulation_steps=args.gradient_accumulation_steps,
-#     learning_rate=args.learning_rate,
-#     weight_decay=args.weight_decay,
-#     max_steps=max_train_steps,
-#     lr_scheduler_type="linear",
-#     warmup_steps=warmup_steps,
-#     # other args and kwargs here
-#     report_to="wandb",  # enable logging to W&B
-#     run_name=wandb_name,  # name of the W&B run (optional)
-#     logging_strategy="steps",
-#     logging_steps=50,  # how often to log to W&B
-#     save_strategy="no",
-#     # save_steps=500,
-#     # save_total_limit=2,
-#     seed=args.seed,
-#     fp16=True if torch.cuda.is_available() else False,
-#     # fsdp="full_shard",
-#     torch_compile=False,
-#     eval_strategy="steps",
-#     eval_steps=100,
-#     remove_unused_columns=False,
-# )
-
 wandb:
   project: bepatient
   entity: seyedparsa
-  name: helloworld
   dir: /work/hdd/bbjr/pmirtaheri/bepatient/wandb

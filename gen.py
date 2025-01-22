@@ -53,7 +53,5 @@ if __name__ == '__main__':
                 sample['phrag'] = str(mission.phrag.edges)
             data[split].append(sample)
     
-            # data.append({'id': i, 'text': f'text_{i}', 'label': random.randint(0, 1)})
-
         with open(f'{args.data_dir}/{split}_{args.graph_type}_{args.task_type}_n{num_samples}.json', 'w') as f:
             json.dump(data[split], f, indent=4)

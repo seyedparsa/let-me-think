@@ -1,0 +1,1 @@
+python eval.py --training_config configs/training_config.yaml --ckpt=/work/hdd/bbjr/pmirtaheri/bepatient/output_dir/cycle_decision_optimal_n10000/checkpoint-1000 --data_dir=/work/hdd/bbjr/pmirtaheri/bepatient/data_dir --data_file=val_cycle_decision_n5000.json
