@@ -25,13 +25,25 @@ class Mission(object):
         self.graph = generate_graph(args)
         if self.task_type == 'decision':
             self.phrag = generate_graph(args) 
-        self.start, self.target = np.random.choice(args.num_nodes, 2, replace=False)
+        if args.random_st:
+            self.start, self.target = np.random.choice(self.graph.number_of_nodes(), 2, replace=False)
+        else:
+            self.start, self.target = 0, self.graph.number_of_nodes() - 1
 
     def search(self, search_type):
-        if search_type == 'dfs':
+        if search_type == 'optimal':
+            return nx.shortest_path(self.graph, self.start, self.target)
+        elif search_type == 'dfs':
             walk = dfs(self.graph, self.start)
             walk = walk[:walk.index(self.target) + 1]
             return walk
+        elif search_type == 'random':
+            walk = [self.start]
+            while walk[-1] != self.target:
+                walk.append(np.random.choice(list(self.graph.neighbors(walk[-1]))))
+            return walk
+        else:
+            raise ValueError(f'Unknown search type: {search_type}')
         
     def number_of_nodes(self):
         res = self.graph.number_of_nodes()
@@ -57,14 +69,12 @@ class MissionTokenizer(PreTrainedTokenizer):
         super().__init__()
         
 
-    def encode(self, mission_str, max_length):
-        tokens = ['BOS'] + self._tokenize(mission_str) + ['EOS']
+    def encode(self, mission_str):
+        tokens = self._tokenize(mission_str)
         token_ids = [self.vocab[token] for token in tokens]
-        # token_ids = token_ids[:max_length]
-        # print(mission_str)
-        # print(len(token_ids))
-        assert(len(token_ids) <= max_length)
-        # token_ids += [self.vocab['PAD']] * (max_length - len(token_ids))
+        if len(token_ids) > self.model_max_length:
+            print(f'Warning: token length {len(token_ids)} exceeds max length {self.model_max_length}', flush=True)
+            token_ids = token_ids[:self.model_max_length]
         return token_ids
 
     def decode(self, token_ids, **kwargs):
@@ -74,7 +84,7 @@ class MissionTokenizer(PreTrainedTokenizer):
         return self.vocab
     
     def _tokenize(self, text):
-        return re.findall(r"([A-Za-z]+|\d+|\S)", text)
+        return ['BOS'] + re.findall(r"([A-Za-z]+|\d+|\S)", text) + ['EOS']
 
     def _convert_token_to_id(self, token):
         return self.vocab.get(token, self.unk_token_id)

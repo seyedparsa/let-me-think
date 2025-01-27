@@ -1,1 +1,1 @@
-accelerate launch --config_file configs/accelerate.yaml train.py --wandb --config configs/training_config.yaml # --reset --ckpt=/work/hdd/bbjr/pmirtaheri/bepatient/output_dir/cycle_decision_n1000_search/checkpoint-500 --resume
+accelerate launch --config_file configs/accelerate.yaml train.py --wandb --config configs/training_config.yaml # --resume --ckpt=checkpoint-4500

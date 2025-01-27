@@ -1,1 +1,1 @@
-python gen.py --num_train 100000 --num_val 5000 --graph_type=cycle --num_nodes=4  --search_type=dfs --task_type=decision
+python gen.py --num_train 100000 --num_val 1000 --graph_type comblock --depth 10 --width 5 --search_types optimal,dfs --task_type decision
