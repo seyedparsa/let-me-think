@@ -1,3 +1,4 @@
+from functools import lru_cache
 import numpy as np
 import networkx as nx
 import random
@@ -17,7 +18,7 @@ def generate_caterpillar(depth, width, num_matchings):
     return graph
 
 
-def generate_graph(args):
+def gen_graph(args):
     graph_type = args.graph_type
     if args.num_nodes is not None:
         num_nodes = args.num_nodes
@@ -67,6 +68,35 @@ def dfs(graph, start):
     return walk
 
 
+graph_dict = {}
+
+@lru_cache(maxsize=None)
+def count_walk(graph_hash, start, target, walk_len):
+    if start == target:
+        target = None
+    if walk_len == 0:
+        return 1 if (target is None) else 0
+    cnt = 0
+    for u in graph_dict[graph_hash].neighbors(start):
+        cnt += count_walk(graph_hash, u, target, walk_len - 1)
+    return cnt
+
+
+def gen_walk(graph, start, target, walk_len):
+    graph_hash = hash(str(sorted(graph.edges)))
+    graph_dict[graph_hash] = graph
+    cnt = count_walk(graph_hash, start, target, walk_len)
+    if cnt == 0:
+        raise ValueError('No walk exists')
+    walk = [start]
+    while walk[-1] != target:
+        neighbors = list(graph.neighbors(walk[-1]))
+        counts = [count_walk(graph_hash, u, target, walk_len - len(walk)) for u in neighbors]
+        walk.append(random.choices(neighbors, counts)[0]) 
+    return walk
+
+
+
 # String Utils
 def get_missions_vocab(num_node_tokens):
     vocab = {str(i): i for i in range(num_node_tokens)}
@@ -82,19 +112,21 @@ def gen_mission_str(mission, **kwargs):
     node_ids = kwargs.get('node_ids')
     clues = kwargs.get('clues')
     num_graph_nodes = mission.graph.number_of_nodes()
+    num_total_nodes = mission.number_of_nodes()
     edges = [(node_ids[u], node_ids[v]) for u, v in mission.graph.edges()]
     if mission.task_type == 'decision':
         edges += ([(node_ids[num_graph_nodes + u], node_ids[num_graph_nodes + v]) for u, v in mission.phrag.edges()])
-    random.shuffle(edges)     
-    s, t = node_ids[mission.start], node_ids[mission.target]   
-    mission_str = 'graph: ' + str(edges) + '\ntask: ' + str(s) + ' to '
+    edges = [(u, v) if random.randint(0, 1) == 0 else (v, u) for u, v in edges]
+    random.shuffle(edges)
+    
+    mission_str = 'graph: ' + str(edges) + '\ntask: ' + str(node_ids[mission.start]) + ' to '
     if mission.task_type == 'decision':
-        t_1, t_2 = t, node_ids[num_graph_nodes]
+        t_1, t_2 = mission.target, mission.tegrat
         if random.randint(0, 1) == 0:
             t_1, t_2 = t_2, t_1
-        mission_str += str(t_1) + ' or ' + str(t_2)
+        mission_str += str(node_ids[t_1]) + ' or ' + str(node_ids[t_2])
     else:
-        mission_str += str(t)
+        mission_str += str(node_ids[mission.target])
     mission_str += ' / '
     if clues:
         for clue_type, clue_list in clues.items():

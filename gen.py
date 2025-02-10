@@ -1,10 +1,14 @@
+from collections import defaultdict
 import json
 import argparse
 import random
 import os
 
+import numpy as np
 from tqdm import tqdm
 from mission import Mission
+import matplotlib.pyplot as plt
+import wandb
 import networkx as nx
 
 
@@ -24,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--depth', type=int, default=None, help='depth in caterpillar and comblock graphs')
     parser.add_argument('--width', type=int, default=None, help='width in caterpillar and comblock graphs')
     parser.add_argument('--num_matchings', type=int, default=None, help='number of matchings in caterpillar graph')
-    parser.add_argument('--random_st', action='store_true', help='random start and target')
+    parser.add_argument('--st_pair', type=str, default='random', help='start and target choice')
 
     args = parser.parse_args()
     print(args)
@@ -32,7 +36,16 @@ if __name__ == '__main__':
     random.seed(args.seed)
     os.makedirs(args.data_dir, exist_ok=True)
 
-    search_types = args.search_types.split(',')
+    wandb.init(project="bepatient", entity="seyedparsa", name=f"walk-lengths", resume="allow")
+
+    search_types = []
+    for search_type in args.search_types.split(','):
+        if search_type.startswith('walk'):
+            l, r, j = map(int, search_type.split('-')[1:])
+            dist = 'walk' if search_type.startswith('walks-') else 'walk_mix'
+            search_types.extend([f'{dist}-{i}' for i in range(l, r + 1, j)])
+        else:
+            search_types.append(search_type)
     print(search_types)
     splits = ['train', 'val']
     split_sizes = [args.num_train, args.num_val]
@@ -44,9 +57,10 @@ if __name__ == '__main__':
     elif args.max_num_nodes is not None:
         graph_name += f'{args.min_num_nodes}-{args.max_num_nodes}'
     elif args.depth is not None:
-        graph_name += f'd{args.depth}-w{args.width}'
+        graph_name += f'_d{args.depth}-w{args.width}'
         if args.num_matchings is not None:
             graph_name += f'-m{args.num_matchings}'
+    walk_len = defaultdict(list)
     for split, num_samples in zip(splits, split_sizes):
         data[split] = []
         for i in tqdm(range(num_samples)):
@@ -60,9 +74,29 @@ if __name__ == '__main__':
             }
             if args.task_type == 'decision':
                 sample['phrag'] = str(mission.phrag.edges)
+                sample['tegrat'] = int(mission.tegrat)
             for search_type in search_types:
-                sample[search_type] = str(mission.search(search_type))
-            data[split].append(sample)
-    
-        with open(f"{args.data_dir}/{split}_{graph_name}_{args.task_type}_n{num_samples}.json", 'w') as f:
+                search = mission.search(search_type)
+                sample[search_type] = str(search)
+                # print(f"search {search_type}({len(search)-1}): {sample[search_type]}")                
+                walk_len[search_type].append(len(search) - 1)
+            data[split].append(sample)            
+            # input()
+
+        num_search_types = len(search_types)
+        fig, axes = plt.subplots(num_search_types, 1, figsize=(10, 5 * num_search_types))
+        for ax, search_type in zip(axes, search_types):
+            ax.hist(walk_len[search_type], bins=range(0, 101), density=True, align='left')
+            ax.set_xlabel('length')
+            ax.set_ylabel(f'fraction of {search_type} traces')
+            ax.set_xticks(range(0, 101, 5))
+            ax.set_title(search_type)
+        fig.suptitle(f'Histograms of search lengths in {split} set', fontsize=16)
+        plt.tight_layout()
+        wandb.log({f"{split}_search_types": wandb.Image(fig)})
+        plt.close(fig)
+        
+        file_name = f"{split}_{graph_name}_{args.task_type}_st-{args.st_pair}_n{num_samples}.json"
+        file_path = os.path.join(args.data_dir, file_name)
+        with open(file_path, 'w') as f:
             json.dump(data[split], f, indent=4)

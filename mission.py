@@ -4,7 +4,7 @@ import re
 import numpy as np
 import networkx as nx
 from ast import literal_eval
-from utils import generate_graph, dfs
+from utils import gen_graph, dfs, gen_walk
 from transformers import PreTrainedTokenizer, DataCollatorForLanguageModeling
 
 
@@ -18,17 +18,24 @@ class Mission(object):
             self.target = args['target']
             if args['phrag']:
                 self.phrag = nx.from_edgelist(literal_eval(args['phrag']))
+                self.tegrat = args['tegrat']
             return
 
         self.graph_type = args.graph_type
         self.task_type = args.task_type
-        self.graph = generate_graph(args)
-        if self.task_type == 'decision':
-            self.phrag = generate_graph(args) 
-        if args.random_st:
+        self.graph = gen_graph(args)
+
+        if args.st_pair == 'random':
             self.start, self.target = np.random.choice(self.graph.number_of_nodes(), 2, replace=False)
-        else:
+        elif args.st_pair == 'far':
             self.start, self.target = 0, self.graph.number_of_nodes() - 1
+
+        if self.task_type == 'decision':
+            self.phrag = gen_graph(args)     
+            if args.st_pair == 'random':
+                self.tegrat = np.random.choice(range(self.graph.number_of_nodes(), self.number_of_nodes()))
+            elif args.st_pair == 'far':
+                self.tegrat = self.number_of_nodes() - 1
 
     def search(self, search_type):
         if search_type == 'optimal':
@@ -42,6 +49,14 @@ class Mission(object):
             while walk[-1] != self.target:
                 walk.append(np.random.choice(list(self.graph.neighbors(walk[-1]))))
             return walk
+        elif search_type.startswith('walk-'):
+            walk_len = int(search_type.split('-')[1])
+            return gen_walk(self.graph, self.start, self.target, walk_len)
+        elif search_type.startswith('walk_mix-'):
+            max_len = int(search_type.split('-')[1])
+            min_len = len(nx.shortest_path(self.graph, self.start, self.target)) - 1            
+            walk_len = np.random.randint(min_len, max_len + 1)
+            return gen_walk(self.graph, self.start, self.target, walk_len)
         else:
             raise ValueError(f'Unknown search type: {search_type}')
         

@@ -19,40 +19,35 @@ from mission import Mission, MissionTokenizer, MissionDataCollator
 from utils import get_missions_vocab, gen_mission_str
 
 
-def eval_steps(mission, node_ids, answer_str, debug=False):    
+def verify_answer(mission, node_ids, answer_str, return_works=False):
     node_id_revs = {node_ids[i]: i for i in range(len(node_ids))}
-    if debug:
-        print(mission.graph.edges())
-        print(node_ids)        
-        print(answer_str)
     evidence = False
     decision = False
     work_pattern = r'(work|decision):\[(\d+(?:,\d+)*)\]'
     work_match = re.findall(work_pattern, answer_str.replace(' ', ''))
+    works = []
     for work_type, work_str in work_match:
-        work_list = list(map(int, work_str.split(',')))                
-        work_list = [node_id_revs.get(node_id, -1) for node_id in work_list]
-        if debug:
-            print(work_type, work_list)
+        work_list = list(map(int, work_str.split(',')))                        
+        work_list = [node_id_revs.get(node_id, -1) for node_id in work_list]        
+        works += work_list
         if work_type == 'decision':
             decision = (work_list[0] == mission.target)
         elif work_type == 'work':
             valid_walk = all(mission.graph.has_edge(work_list[i], work_list[i + 1]) for i in range(len(work_list) - 1))
             evidence = valid_walk and (work_list[0] == mission.start) and (work_list[-1] == mission.target)
         
-            
-    if debug:
-        print(evidence, decision)
+    if return_works:
+        return evidence, decision, works
     return evidence, decision
 
 
-def answer_questions(model, tokenizer, question_strs):
+def answer_questions(model, tokenizer, question_strs, do_sample=False, **kwargs):
     questions = tokenizer(question_strs, return_tensors='pt', padding=True, truncation=False).to(model.device)
     assert(questions['input_ids'].shape[1] <= tokenizer.model_max_length)
-    input_ids = questions['input_ids'][:, :-1]
+    input_ids = questions['input_ids'][:, :-1] # remove eos token
     attention_mask = questions['attention_mask'][:, :-1]
-    gens = model.generate(input_ids=input_ids, attention_mask=attention_mask, pad_token_id=tokenizer.pad_token_id, do_sample=False)
-    answers = gens[:, input_ids.shape[1]:]
+    gens = model.generate(input_ids=input_ids, attention_mask=attention_mask, do_sample=do_sample, **kwargs)
+    answers = gens[:, input_ids.shape[1]:] # remove the input
     answer_strs = tokenizer.batch_decode(answers)
     return answer_strs
 
@@ -66,7 +61,7 @@ def create_compute_metrics(model, tokenizer, eval_dataset):
         output_mask = (labels != -100)
         num_outputs = np.sum(output_mask, axis=-1)
         num_corr_outputs = np.sum((preds == labels) & output_mask, axis=-1)
-        acc = np.mean(num_corr_outputs == num_outputs)
+        str_acc = np.mean(num_corr_outputs == num_outputs)
         char_acc = np.mean(num_corr_outputs / num_outputs)
 
         question_strs = [s[:s.find(tokenizer.sep_token) + 1] for s in mission_strs]
@@ -78,21 +73,33 @@ def create_compute_metrics(model, tokenizer, eval_dataset):
             mission = Mission(eval_dataset[i], from_dict=True)
             node_ids = eval_dataset[i]['node_ids']
             answer_str = answer_strs[i]
-            evidence, decision = eval_steps(mission, node_ids, answer_str)
+            evidence, decision, works = verify_answer(mission, node_ids, answer_str, return_works=True)
             decision_acc.append(decision)
             evidence_acc.append(evidence)
+            # if i < 5:
+            #     print(f'Question: {question_strs[i]}')
+            #     print(f'Answer: {answer_str}')
+            #     print(f'Decision: {decision}')
+            #     print(f'Evidence: {evidence}')
+            #     print(f'Works: {works}')
     
         decision_acc = np.mean(decision_acc)
         evidence_acc = np.mean(evidence_acc)
         metrics = {
-            'accuracy': acc,
+            'str_accuracy': str_acc,
             'char_accuracy': char_acc,
-            'decision_acc': decision_acc,
-            'evidence_acc': evidence_acc,
+            'decision_accuracy': decision_acc,
+            'evidence_accuracy': evidence_acc,
         }
         return metrics
     
     return compute_metrics
+
+
+def get_run_name(config):
+    run_name = '_'.join([config['teach']] + config['train_file'].split('_')[1:5]) 
+    run_name += f"_p{config['num_node_tokens']}_n{config['num_train']}_e{config['num_epochs']}_lr{config['lr']}_wd{config['weight_decay']}_sc{config['lr_scheduler_type']}"
+    return run_name
 
 
 if __name__ == '__main__':
@@ -103,12 +110,26 @@ if __name__ == '__main__':
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--ckpt", type=str, default=None)
 
+    parser.add_argument("--seed", type=int, help="Override the random seed")
+    parser.add_argument("--teach", type=str, help="Override the teaching strategy")  
+    parser.add_argument("--num_train", type=int, help="Override the number of training samples")
+    parser.add_argument("--num_epochs", type=int, help="Override the number of epochs")
+    parser.add_argument("--batch_size", type=int, help="Override the batch size")
+    parser.add_argument("--weight_decay", type=float, help="Override the weight decay")
+    parser.add_argument("--lr", type=float, help="Override the learning rate")
+    parser.add_argument("--lr_scheduler_type", type=str, help="Override the learning rate scheduler type")
+
     args = parser.parse_args()
 
     # read training config from a json file
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
-    
+
+    # override config with command line arguments
+    for key, value in vars(args).items():
+        if value is not None and key in config:
+            config[key] = value
+
     # set seeds
     seed = config['seed']
     random.seed(seed)
@@ -122,9 +143,15 @@ if __name__ == '__main__':
     with open(config['model_config'], 'r') as f:
         model_config = yaml.safe_load(f)
     
-    run_name = run_name = '_'.join(config['train_file'].split('_')[1:3]) # f"{config['task']}_{config['teach']}_n{config['num_train']}"
-    run_name += f"_p{config['num_node_tokens']}_{config['teach']}_n{config['num_train']}_e{config['num_epochs']}"
+    run_name = get_run_name(config)
     print(run_name)
+    
+    # set up wandb
+    report_to_wandb = args.wandb # and accelerator.is_main_process
+    if report_to_wandb:
+        wandb_config = config.get('wandb_config')
+        wandb_config['name'] = run_name
+        wandb.init(config=config, **wandb_config)
 
     # set up model and tokenizer: from_pretrained
     num_node_tokens = config['num_node_tokens']    
@@ -138,15 +165,9 @@ if __name__ == '__main__':
     model_config['pad_token_id'] = tokenizer.pad_token_id
     model_config['bos_token_id'] = tokenizer.bos_token_id
     model_config['eos_token_id'] = tokenizer.eos_token_id
+    model_config['max_length'] = tokenizer.model_max_length
     model_config = MistralConfig(**model_config)
     model = MistralForCausalLM(model_config)
-
-    # set up wandb
-    report_to_wandb = args.wandb and accelerator.is_main_process
-    if report_to_wandb:
-        wandb_config = config.get('wandb')
-        wandb_config['name'] = run_name
-        wandb.init(config=config, **wandb_config)
 
     # load dataset
     data_dir = config['data_dir']
@@ -158,21 +179,26 @@ if __name__ == '__main__':
             "train": train_file,
             "val": val_file,
         },
+        cache_dir=data_dir,
     )
     datasets['train'] = datasets['train'].select(range(config['num_train']))
 
-    teach = config['teach']
+    teach = config['teach'].split(',')
+    print(teach)
 
     # tokenize dataset
-    def tokenize(example):
+    def tokenize(example, idx):
         mission = Mission(example, from_dict=True)
-        clues = {'work': literal_eval(example[teach]), 'decision': [example['target']]}
+        search_type = teach[idx % len(teach)]
+        clues = {'work': literal_eval(example[search_type]), 'decision': [example['target']]}
         node_ids = np.random.permutation(num_node_tokens)[:mission.number_of_nodes()]
         mission_str = gen_mission_str(mission, node_ids=node_ids, clues=clues)
+        # if idx < 5:
+        #     print(f"Mission {idx}: {mission_str}")
         token_ids = tokenizer.encode(mission_str)
         return {'input_ids': token_ids, 'mission_strs': mission_str, 'node_ids': node_ids} 
 
-    tokenized_datasets = datasets.map(tokenize, batched=False) #, remove_columns=datasets["train"].column_names)
+    tokenized_datasets = datasets.map(tokenize, with_indices=True, batched=False) #, remove_columns=datasets["train"].column_names)
     data_collator = MissionDataCollator(tokenizer, mlm=False)
 
     # prepare training
@@ -197,6 +223,8 @@ if __name__ == '__main__':
         run_name=run_name,
         save_steps=config['save_steps'],
         save_total_limit=config['save_total_limit'],
+        load_best_model_at_end=True,
+        metric_for_best_model='decision_accuracy',
     )
     trainer = Trainer(
         model=model,
@@ -213,3 +241,4 @@ if __name__ == '__main__':
         trainer.train(resume_from_checkpoint=checkpoint_path)
     else:
         trainer.train()
+
