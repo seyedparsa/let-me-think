@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--seed', type=int, default=42, help='random seed')
-    parser.add_argument('--data_dir', type=str, default='/work/hdd/bbjr/pmirtaheri/bepatient/data_dir', help='data directory')
+    parser.add_argument('--data_dir', type=str, default='', help='data directory')
     parser.add_argument('--num_train', type=int, default=5000, help='number of training samples')
     parser.add_argument('--num_val', type=int, default=5000, help='number of validation samples')
     parser.add_argument('--graph_type', type=str, default='caterpillar', help='type of graph')

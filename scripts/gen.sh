@@ -1,1 +1,1 @@
-python gen.py --num_train 100000 --num_val 1000 --graph_type comblock --depth 10 --width 5 --search_types optimal,dfs --task_type decision
+python gen.py --num_train 100000 --num_val 1000 --graph_type comblock --depth 10 --width 5 --task_type decision --st_pair far --search_types optimal,dfs,walks-10-50-4,walk_mixes-10-50-4

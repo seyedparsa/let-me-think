@@ -1,0 +1,19 @@
+program: train.py
+name: comblock_d10-w5_decision_st-far
+method: grid
+metric:
+  name: eval/decision_accuracy
+  goal: maximize
+parameters:
+  lr: 
+    values: [1e-4, 3e-4, 1e-3, 3e-3]
+  # weight_decay:
+  #   values: [0.1, 0.01]
+  # seed:
+  #   values: [42, 43]
+  # lr_scheduler_type:
+  #   values: [cosine, linear]
+  teach:
+    values: [walk-10, walk-18, walk-26, walk-34, walk-42, walk-50, walk_mix-10, walk_mix-18, walk_mix-26, walk_mix-34, walk_mix-42, walk_mix-50, dfs]
+  # num_train:
+  #   values: [100000, 200000, 300000, 400000, 500000]

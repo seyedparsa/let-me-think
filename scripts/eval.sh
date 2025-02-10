@@ -1,1 +1,1 @@
-python eval.py --training_config configs/training_config.yaml --output_dir=/work/hdd/bbjr/pmirtaheri/bepatient/output_dir --ckpt=tree2-5_decision_p20_optimal_n100000_e100/checkpoint-8000 --data_dir=/work/hdd/bbjr/pmirtaheri/bepatient/data_dir --data_file=val_tree10_decision_n1000.json
+python eval.py --training_config configs/training_config.yaml --output_dir= --ckpt= --data_dir= --data_file=
