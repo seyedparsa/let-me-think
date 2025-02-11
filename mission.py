@@ -51,10 +51,12 @@ class Mission(object):
             return walk
         elif search_type.startswith('walk-'):
             walk_len = int(search_type.split('-')[1])
+            walk_len = max(walk_len, len(nx.shortest_path(self.graph, self.start, self.target))-1)
             return gen_walk(self.graph, self.start, self.target, walk_len)
         elif search_type.startswith('walk_mix-'):
-            max_len = int(search_type.split('-')[1])
+            max_len = int(search_type.split('-')[1])            
             min_len = len(nx.shortest_path(self.graph, self.start, self.target)) - 1            
+            max_len = max(min_len, max_len)
             walk_len = np.random.randint(min_len, max_len + 1)
             return gen_walk(self.graph, self.start, self.target, walk_len)
         else:
