@@ -90,8 +90,9 @@ class MissionTokenizer(PreTrainedTokenizer):
         tokens = self._tokenize(mission_str)
         token_ids = [self.vocab[token] for token in tokens]
         if len(token_ids) > self.model_max_length:
-            print(f'Warning: token length {len(token_ids)} exceeds max length {self.model_max_length}', flush=True)
-            token_ids = token_ids[:self.model_max_length]
+            raise ValueError(f'Token length {len(token_ids)} exceeds max length {self.model_max_length}')
+            # print(f'Warning: token length {len(token_ids)} exceeds max length {self.model_max_length}', flush=True)
+            # token_ids = token_ids[:self.model_max_length]
         return token_ids
 
     def decode(self, token_ids, **kwargs):

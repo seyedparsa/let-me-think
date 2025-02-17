@@ -27,6 +27,7 @@ def gen_graph(args):
     
     if graph_type == 'cycle':
         graph = nx.cycle_graph(num_nodes)
+        # TODO: set largest node to be the furthest
     elif graph_type == 'tree':
         graph = nx.random_labeled_tree(num_nodes)
     elif graph_type == 'component':
@@ -48,6 +49,18 @@ def gen_graph(args):
         for i in range(depth):
             for j in range(width):
                 graph.add_edge(i * width, i * width + j + 1)
+    elif graph_type == 'flower':
+        depth = args.depth
+        cycle = args.petal
+        ratio = args.ratio
+        assert cycle % (ratio + 1) == 0
+        cycle_sp = cycle // (ratio + 1)
+        graph = nx.Graph()
+        for i in range(depth):
+            nodes = list(range(i * (cycle - 1), (i + 1) * (cycle - 1) + 1))
+            nodes[:cycle_sp]  = reversed(nodes[:cycle_sp])
+            for j in range(cycle):
+                graph.add_edge(nodes[j], nodes[(j + 1) % cycle])
     return graph
 
 

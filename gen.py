@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--seed', type=int, default=42, help='random seed')
-    parser.add_argument('--data_dir', type=str, default='', help='data directory')
+    parser.add_argument('--data_dir', type=str, default='/work/hdd/bbjr/pmirtaheri/bepatient/data_dir', help='data directory')
     parser.add_argument('--num_train', type=int, default=5000, help='number of training samples')
     parser.add_argument('--num_val', type=int, default=5000, help='number of validation samples')
     parser.add_argument('--graph_type', type=str, default='caterpillar', help='type of graph')
@@ -28,6 +28,8 @@ if __name__ == '__main__':
     parser.add_argument('--depth', type=int, default=None, help='depth in caterpillar and comblock graphs')
     parser.add_argument('--width', type=int, default=None, help='width in caterpillar and comblock graphs')
     parser.add_argument('--num_matchings', type=int, default=None, help='number of matchings in caterpillar graph')
+    parser.add_argument('--petal', type=int, default=None, help='length of cycle in flower graph')
+    parser.add_argument('--ratio', type=int, default=None, help='ratio of paths in flower graph cycle')
     parser.add_argument('--st_pair', type=str, default='random', help='start and target choice')
 
     args = parser.parse_args()
@@ -57,7 +59,13 @@ if __name__ == '__main__':
     elif args.max_num_nodes is not None:
         graph_name += f'{args.min_num_nodes}-{args.max_num_nodes}'
     elif args.depth is not None:
-        graph_name += f'_d{args.depth}-w{args.width}'
+        graph_name += f'_d{args.depth}'
+        if args.width is not None:
+            graph_name += f'-w{args.width}'
+        if args.petal is not None:
+            graph_name += f'-p{args.petal}'
+        if args.ratio is not None:
+            graph_name += f'-r{args.ratio}'
         if args.num_matchings is not None:
             graph_name += f'-m{args.num_matchings}'
     walk_len = defaultdict(list)

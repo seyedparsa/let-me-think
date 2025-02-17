@@ -2,7 +2,7 @@ seed: 42
 teach: walk-20
 num_train: 100000
 num_epochs: 50 
-num_node_tokens: 102
+num_node_tokens: 112
 context_length: 1000
 batch_size: 500
 eval_steps: 100
@@ -10,17 +10,17 @@ log_steps: 100
 save_steps: 500
 gradient_accumulation_steps: 1
 weight_decay: 0.1
-warmup_steps: 4000
+warmup_ratio: 0.1
 lr: 0.0003
 lr_scheduler_type: cosine
 save_total_limit: 5
 model_config: configs/model_config.yaml
-output_dir: 
-data_dir: 
-train_file: 
-val_file: 
+output_dir: /work/hdd/bbjr/pmirtaheri/bepatient/output_dir
+data_dir: /work/hdd/bbjr/pmirtaheri/bepatient/data_dir
+train_file: train_flower_d5-p12-r2_decision_st-far_n100000.json
+val_file: val_flower_d5-p12-r2_decision_st-far_n1000.json
 wandb_config:
   project: bepatient
-  entity: 
-  dir: 
+  entity: seyedparsa
+  dir: /work/hdd/bbjr/pmirtaheri/bepatient/wandb
 

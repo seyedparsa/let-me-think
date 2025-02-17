@@ -211,7 +211,7 @@ if __name__ == '__main__':
         learning_rate=config['lr'],
         lr_scheduler_type=config['lr_scheduler_type'],
         weight_decay=config['weight_decay'],
-        warmup_steps=config['warmup_steps'],
+        warmup_ratio=config['warmup_ratio'],
         num_train_epochs=config['num_epochs'],
         seed=config['seed'],
         fp16=True,
