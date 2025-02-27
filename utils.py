@@ -86,26 +86,40 @@ graph_dict = {}
 @lru_cache(maxsize=None)
 def count_walk(graph_hash, start, target, walk_len):
     if start == target:
-        target = None
+        target = -1
     if walk_len == 0:
-        return 1 if (target is None) else 0
+        return 1 if (target == -1) else 0
     cnt = 0
     for u in graph_dict[graph_hash].neighbors(start):
         cnt += count_walk(graph_hash, u, target, walk_len - 1)
     return cnt
 
 
+@lru_cache(maxsize=None)
+def reach_prob(graph_hash, start, target, walk_len):
+    if start == target:
+        return 1
+    if walk_len == 0:
+        return 0
+    prob = 0.
+    neighbors = list(graph_dict[graph_hash].neighbors(start))
+    for u in neighbors:
+        prob += reach_prob(graph_hash, u, target, walk_len - 1)
+    return prob / len(neighbors)
+
+
 def gen_walk(graph, start, target, walk_len):
     graph_hash = hash(str(sorted(graph.edges)))
-    graph_dict[graph_hash] = graph
-    cnt = count_walk(graph_hash, start, target, walk_len)
-    if cnt == 0:
+    if graph_hash not in graph_dict:
+        graph_dict[graph_hash] = graph
+    prob = reach_prob(graph_hash, start, target, walk_len)
+    if np.isclose(prob, 0):
         raise ValueError('No walk exists')
     walk = [start]
     while walk[-1] != target:
         neighbors = list(graph.neighbors(walk[-1]))
-        counts = [count_walk(graph_hash, u, target, walk_len - len(walk)) for u in neighbors]
-        walk.append(random.choices(neighbors, counts)[0]) 
+        probs = np.array([reach_prob(graph_hash, u, target, walk_len - len(walk)) for u in neighbors])
+        walk.append(random.choices(neighbors, probs)[0]) 
     return walk
 
 
