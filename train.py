@@ -52,6 +52,14 @@ def answer_questions(model, tokenizer, question_strs, do_sample=False, **kwargs)
     return answer_strs
 
 
+best_metrics = {
+            'str_accuracy': 0,
+            'char_accuracy': 0,
+            'decision_accuracy': 0,
+            'evidence_accuracy': 0,
+        }
+
+
 def create_compute_metrics(model, tokenizer, eval_dataset):
     def compute_metrics(eval_pred):
         mission_strs = eval_dataset['mission_strs']
@@ -91,6 +99,11 @@ def create_compute_metrics(model, tokenizer, eval_dataset):
             'decision_accuracy': decision_acc,
             'evidence_accuracy': evidence_acc,
         }
+        for key, value in metrics.items():
+            if value > best_metrics[key]:
+                best_metrics[key] = value
+        for key, value in best_metrics.items():
+            metrics[f"best_{key}"] = value
         return metrics
     
     return compute_metrics
@@ -242,3 +255,7 @@ if __name__ == '__main__':
     else:
         trainer.train()
 
+    # if report_to_wandb:
+    #     for key, value in best_metrics.items():
+    #         wandb.run.summary[f"eval/best_{key}"] = value
+    #     wandb.finish()
