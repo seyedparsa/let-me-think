@@ -1,6 +1,6 @@
 model_type: mistral
-hidden_size: &hidden_size 256
+hidden_size: &hidden_size 128
 intermediate_size: *hidden_size
 num_hidden_layers: 4
-num_attention_heads: &num_heads 8
+num_attention_heads: &num_heads 4
 num_key_value_heads: *num_heads

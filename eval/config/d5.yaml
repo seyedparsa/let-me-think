@@ -1,0 +1,14 @@
+# depth 4
+sweep_name: flower_d5-s3-l5-b3_t13e6_hl4
+sweep_ids: [y3qy02tq, opw0xft5, gbaooll5, fclc1dvf, 0qsyf469] # odd6y6nd, tyk5a2wm]
+num_node_tokens: 102
+context_length: 400
+play_file: train_flower_d5-s3-l5-b3_decision_st-far_n500000.json
+val_file: val_flower_d5-s3-l5-b3_decision_st-far_n5000.json
+path-play-1: path-play-1_n54865_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json
+path-play-2: path-play-2_n118003_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json
+path-play-3: path-play-3_n174020_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json
+# path-play-4: path-play-4_n234511_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json
+path-play-4: path-play-4_g_n302771_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json
+# path-play-2: path-play-2_n112040_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json
+# path-play-3: path-play-3_n163718_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json

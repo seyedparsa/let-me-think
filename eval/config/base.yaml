@@ -1,0 +1,14 @@
+entity: seyedparsa
+project: bepatient
+
+metric_for_best_step: 
+  name: eval/evidence_accuracy
+  mode: max
+metric_for_best_model:
+  name: evidence_accuracy
+  mode: max
+data_dir: /work/hdd/bbjr/pmirtaheri/bepatient/data_dir
+output_dir: /work/hdd/bbjr/pmirtaheri/bepatient/output_dir
+eval_dir: /work/hdd/bbjr/pmirtaheri/bepatient/eval_dir
+batch_size: 1000
+

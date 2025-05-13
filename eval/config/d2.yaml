@@ -1,0 +1,24 @@
+# depth 2
+# sweep_name: delta_flower_d2-s3-l5-b3_t8.5e6
+# sweep_ids: 
+#   - tqp3opz9
+#   - 44rx44p1
+#   - xc3wofvr
+#   - tq4eaubd
+# num_node_tokens: 42
+# context_length: 400
+# val_file: val_flower_d2-s3-l5-b3_decision_st-far_n5000.json
+
+# depth 4
+sweep_name: flower_d2-s3-l5-b3_t8.5e6_hl4
+sweep_ids: [kj3dbd25, 41jihcgd, thwv9vee, 97nt7v75, df7wrk75] # epe9t9p2, 84nc8xl0]
+num_node_tokens: 42
+context_length: 400
+play_file: train_flower_d2-s3-l5-b3_decision_st-far_n500000.json
+val_file: val_flower_d2-s3-l5-b3_decision_st-far_n5000.json
+path-play-1: path-play-1_n175318_on_train_flower_d2-s3-l5-b3_decision_st-far_n500000.json
+path-play-2: path-play-2_n284361_on_train_flower_d2-s3-l5-b3_decision_st-far_n500000.json
+path-play-3: path-play-3_n402963_on_train_flower_d2-s3-l5-b3_decision_st-far_n500000.json
+path-play-4: path-play-4_n454191_on_train_flower_d2-s3-l5-b3_decision_st-far_n500000.json
+# path-play-2: path-play-2_n260257_on_train_flower_d2-s3-l5-b3_decision_st-far_n500000.json
+# path-play-3: path-play-3_n335638_on_train_flower_d2-s3-l5-b3_decision_st-far_n500000.json

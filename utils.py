@@ -2,6 +2,10 @@ from functools import lru_cache
 import numpy as np
 import networkx as nx
 import random
+import os
+from transformers import MistralForCausalLM
+import glob  
+import torch
 
 # Graph Utils
 def generate_caterpillar(depth, width, num_matchings):
@@ -51,33 +55,64 @@ def gen_graph(args):
                 graph.add_edge(i * width, i * width + j + 1)
     elif graph_type == 'flower':
         depth = args.depth
-        cycle = args.petal
-        ratio = args.ratio
-        assert cycle % (ratio + 1) == 0
-        cycle_sp = cycle // (ratio + 1)
+        short, long, dead = args.short, args.long, args.dead
+        # cycle = args.petal
+        # ratio = args.ratio
+        # assert cycle % (ratio + 1) == 0
+        petal_size = short + long + dead
+        petal_edges = []
+        for i in range(short - 1):
+            petal_edges.append((i, i + 1))
+        for i in range(long - 1):
+            petal_edges.append((short + i, (short + i + 1) % (short + long - 1)))
+        for i in range(dead):
+            petal_edges.append((short + long + i - 1, (short + long + i) % (short + long + dead - 1)))
+        if short > 0:
+            petal_edges.append((short - 1, petal_size - 1))
+        if long > 0:
+            petal_edges.append((short, petal_size - 1))
+        
         graph = nx.Graph()
         for i in range(depth):
-            nodes = list(range(i * (cycle - 1), (i + 1) * (cycle - 1) + 1))
-            nodes[:cycle_sp]  = reversed(nodes[:cycle_sp])
-            for j in range(cycle):
-                graph.add_edge(nodes[j], nodes[(j + 1) % cycle])
+            for u, v in petal_edges:
+                graph.add_edge(i * (petal_size - 1) + u, i * (petal_size - 1) + v)
     return graph
 
 
-def dfs(graph, start):
+def dfs(graph, start, target=None, return_mistakes=True, return_backtrack=True):
     marked = [False] * graph.number_of_nodes()
     stack = [start]
     walk = []
     while len(stack) > 0:
         u = stack[-1]
-        walk.append(u)
+        if not marked[u] or return_backtrack:
+            walk.append(u)
         marked[u] = True
+        if u == target:
+            return walk if return_mistakes else stack
         candidates = [v for v in list(graph.neighbors(u)) if not marked[v]]
         if len(candidates) > 0:
             v = random.choice(candidates)
             stack.append(v)
         else:
             stack.pop()
+    return walk
+
+
+def bfs(graph, start, target=None):
+    marked = [False] * graph.number_of_nodes()
+    queue = [start]
+    walk = []
+    while len(queue) > 0:
+        u = queue.pop(0)
+        if marked[u]:
+            continue
+        walk.append(u)
+        marked[u] = True
+        if u == target:
+            return walk
+        candidates = [v for v in list(graph.neighbors(u)) if not marked[v]]
+        queue.extend(candidates)
     return walk
 
 
@@ -145,8 +180,9 @@ def gen_mission_str(mission, **kwargs):
         edges += ([(node_ids[num_graph_nodes + u], node_ids[num_graph_nodes + v]) for u, v in mission.phrag.edges()])
     edges = [(u, v) if random.randint(0, 1) == 0 else (v, u) for u, v in edges]
     random.shuffle(edges)
-    
-    mission_str = 'graph: ' + str(edges) + '\ntask: ' + str(node_ids[mission.start]) + ' to '
+    edges_str = f"[{' '.join([f'{u} {v}' for u, v in edges])}]"
+    # edges_str = str(edges)
+    mission_str = 'graph: ' + edges_str + '\ntask: ' + str(node_ids[mission.start]) + ' to '
     if mission.task_type == 'decision':
         t_1, t_2 = mission.target, mission.tegrat
         if random.randint(0, 1) == 0:
@@ -158,6 +194,32 @@ def gen_mission_str(mission, **kwargs):
     if clues:
         for clue_type, clue_list in clues.items():
             clue = [node_ids[node] for node in clue_list]
-            mission_str += f'\n{clue_type}: {clue}'
+            clue_str = f"[{' '.join([str(node) for node in clue])}]"
+            mission_str += f'\n{clue_type}: {clue_str}'
     return mission_str
 
+
+def load_model(output_dir, sweep_id, model_name):
+    model_dir = os.path.join(output_dir, f"sweeps/{sweep_id}", model_name)
+    if os.path.exists(os.path.join(model_dir, 'best_model')):
+        print(f"Found best model")
+        model_dir = os.path.join(model_dir, 'best_model')
+    else:
+        if os.path.exists(model_dir):
+            checkpoints = glob.glob(os.path.join(model_dir, 'checkpoint-*'))
+            print(f"Found checkpoints: {checkpoints}")            
+            if checkpoints:
+                checkpoints = sorted(checkpoints, key=lambda x: int(x.split('-')[-1]))
+                print(f"Loading {checkpoints[0]}")
+                model_dir = checkpoints[0]
+    print(f"Loading model from {model_dir}")
+    if os.path.exists(model_dir):
+        model = MistralForCausalLM.from_pretrained(model_dir)
+        model.eval()
+        if torch.cuda.is_available():
+            print("Moving model to GPU")
+            model.cuda()
+        return model
+    else:
+        print(f"Model directory {model_dir} does not exist.")
+        return None  

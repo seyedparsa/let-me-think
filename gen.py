@@ -17,9 +17,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--data_dir', type=str, default='/work/hdd/bbjr/pmirtaheri/bepatient/data_dir', help='data directory')
-    parser.add_argument('--num_train', type=int, default=5000, help='number of training samples')
+    parser.add_argument('--num_train', type=int, default=500000, help='number of training samples')
     parser.add_argument('--num_val', type=int, default=5000, help='number of validation samples')
-    parser.add_argument('--graph_type', type=str, default='caterpillar', help='type of graph')
+    parser.add_argument('--graph_type', type=str, default='flower', help='type of graph')
     parser.add_argument('--task_type', type=str, default='decision', help='type of task')
     parser.add_argument('--search_types', type=str, default='optimal', help='type of search')
     parser.add_argument('--num_nodes', type=int, default=None, help='number of nodes')
@@ -28,9 +28,12 @@ if __name__ == '__main__':
     parser.add_argument('--depth', type=int, default=None, help='depth in caterpillar and comblock graphs')
     parser.add_argument('--width', type=int, default=None, help='width in caterpillar and comblock graphs')
     parser.add_argument('--num_matchings', type=int, default=None, help='number of matchings in caterpillar graph')
-    parser.add_argument('--petal', type=int, default=None, help='length of cycle in flower graph')
-    parser.add_argument('--ratio', type=int, default=None, help='ratio of paths in flower graph cycle')
-    parser.add_argument('--st_pair', type=str, default='random', help='start and target choice')
+    parser.add_argument('--short', type=int, default=3, help='length of short path in flower graph')
+    parser.add_argument('--long', type=int, default=5, help='length of long path in flower graph')
+    parser.add_argument('--dead', type=int, default=3, help='length of dead path in flower graph')
+    # parser.add_argument('--petal', type=int, default=None, help='length of cycle in flower graph')
+    # parser.add_argument('--ratio', type=int, default=None, help='ratio of paths in flower graph cycle')
+    parser.add_argument('--st_pair', type=str, default='far', help='start and target choice')
 
     args = parser.parse_args()
     print(args)
@@ -38,7 +41,6 @@ if __name__ == '__main__':
     random.seed(args.seed)
     os.makedirs(args.data_dir, exist_ok=True)
 
-    wandb.init(project="bepatient", entity="seyedparsa", name=f"walk-lengths", resume="allow")
 
     search_types = []
     for search_type in args.search_types.split(','):
@@ -62,13 +64,20 @@ if __name__ == '__main__':
         graph_name += f'_d{args.depth}'
         if args.width is not None:
             graph_name += f'-w{args.width}'
-        if args.petal is not None:
-            graph_name += f'-p{args.petal}'
-        if args.ratio is not None:
-            graph_name += f'-r{args.ratio}'
+        if args.short is not None:
+            graph_name += f'-s{args.short}'
+        if args.long is not None:
+            graph_name += f'-l{args.long}'
+        if args.dead is not None:
+            graph_name += f'-b{args.dead}'
+        # if args.petal is not None:
+        #     graph_name += f'-p{args.petal}'
+        # if args.ratio is not None:
+        #     graph_name += f'-r{args.ratio}'
         if args.num_matchings is not None:
             graph_name += f'-m{args.num_matchings}'
     walk_len = defaultdict(list)
+    wandb.init(project="bepatient", entity="seyedparsa", name=f"walk_lengths-{graph_name}", resume="allow")
     for split, num_samples in zip(splits, split_sizes):
         data[split] = []
         for i in tqdm(range(num_samples)):

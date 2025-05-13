@@ -1,117 +1,86 @@
 import argparse
 import torch
 import os
-import json
 from tqdm import tqdm
 import yaml
 import numpy as np
-import networkx as nx
 import matplotlib.pyplot as plt
-import torch.nn.functional as F
 import pandas as pd
 import wandb
-from datasets import load_dataset
-from collections import defaultdict
-from ast import literal_eval
-from transformers import MistralForCausalLM
-from mission import Mission, MissionTokenizer
-from utils import get_missions_vocab, gen_mission_str
-from train import answer_questions, verify_answer
+from eval import load_model, load_eval_data
+from train import answer_questions, verify_answer, verify_aggregate, create_compute_metrics
+from scipy.stats import mode
+from transformers import Trainer, TrainingArguments
+from mission import MissionDataCollator, Mission
 
 
-
-def visualize_tree(tree, u, node_ids, pars=[]):
-    print('\t'*len(pars), node_ids[u])
-    for v in tree[u]:
-        if v not in pars:
-            visualize_tree(tree, v, node_ids, pars + [u])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--output_dir', type=str, help='output directory')
-    parser.add_argument('--ckpt', type=str, help='path to the model checkpoint')
-    parser.add_argument('--data_dir', type=str, help='data directory')
-    parser.add_argument('--data_file', type=str, help='data file')
+    parser.add_argument('--seed', type=int, default=17)
     parser.add_argument('--training_config', type=str, default='configs/training_config.yaml')
+    parser.add_argument('--sweep_name', type=str, default='delta_flower_d2-s3-l5-b3_t8.5e6')
+    parser.add_argument('--temperature', type=float, default=1.0)
+    parser.add_argument('--log_num_trials', type=int, default=0)
     args = parser.parse_args()
-    torch.manual_seed(args.seed)
+    torch.manual_seed(args.seed)   
+    torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
+    os.environ['PYTHONHASHSEED'] = str(args.seed) 
 
     with open(args.training_config, 'r') as f:
         config = yaml.safe_load(f)
 
-    model_dir = os.path.join(args.output_dir, args.ckpt)
-    # patient_model_dir = os.path.join(args.output_dir, args.ckpt)
-    model = MistralForCausalLM.from_pretrained(model_dir)
-    # patient_model = MistralForCausalLM.from_pretrained(patient_model_dir)
-    model.eval()
-    model.cuda()
-    # patient_model.eval()
-    # patient_model.cuda()
+    tokenizer, dataset = load_eval_data(config)
 
-    num_node_tokens = config['num_node_tokens']
-    context_length = config['context_length']
-    tokenizer = MissionTokenizer(get_missions_vocab(num_node_tokens))
-    tokenizer.model_max_length = context_length
-    tokenizer.padding_side = 'left'     
-    model.config.max_length = context_length
+    csv_path = f"csv/best_evidence_accuracy_{args.sweep_name}.csv"
+    
+    question_strs = [example['mission_strs'] for example in dataset]
+    missions = [Mission(example, from_dict=True) for example in dataset]
+    node_ids = [example['node_ids'] for example in dataset]
 
-    data_file = os.path.join(args.data_dir, args.data_file)
-    dataset = load_dataset("json", data_files={'val':data_file})
-    # print(dataset)
-
-    # tokenize dataset
-    def tokenize(example):
-        mission = Mission(example, from_dict=True)
-        node_ids = np.random.permutation(num_node_tokens)[:mission.number_of_nodes()]
-        mission_str = gen_mission_str(mission, node_ids=node_ids)
-        token_ids = tokenizer.encode(mission_str)
-        return {'input_ids': token_ids, 'mission_strs': mission_str, 'node_ids': node_ids} 
-
-    dataset = dataset.map(tokenize, batched=False)['val'] #, remove_columns=datasets["train"].column_names)
-    # print(dataset)
-
-    num_trials = 101
-    output_every = 20
-    iters = list(range(0, num_trials, output_every))
-    results = []
-
-    # csv
-    df = pd.read_csv("Highest_Evidence_Accuracy_per_Teach.csv")
-    output_filename = "Highest_Evidence_Best-of-k_Results.csv"
+    num_trials = 2 ** args.log_num_trials
+    iters = [2**i for i in range(args.log_num_trials + 1)]
     
 
-    for model_name in df["Name"]:
+
+    df = pd.read_csv(csv_path)
+    columns = ['teach', 'name', 'run_id', 'sweep_id'] + [f'maj_{i}' for i in iters] + [f'any_{i}' for i in iters]
+    results = []
+
+    for index, row in df.iterrows():
+        model_name = row['name']
+        run_id, sweep_id = row['run_id'], row['sweep_id']
         print(f"Loading model: {model_name}...")
-        model_dir = os.path.join(args.output_dir, model_name, 'checkpoint-10000')
-        print(model_dir)
-        # patient_model_dir = os.path.join(args.output_dir, args.ckpt)
-        model = MistralForCausalLM.from_pretrained(model_dir)
-        # patient_model = MistralForCausalLM.from_pretrained(patient_model_dir)
-        model.eval()
-        model.cuda()
-        model.config.max_length = context_length
-        # decision_acc = np.zeros(len(dataset))
+        model = load_model(config['output_dir'], sweep_id, model_name)
+        model.config.max_length = config['context_length']
+        if model is None:
+            print(f"Model {model_name} not found. Skipping...")
+            continue        
+
+        n_answers_strs = [answer_questions(model, tokenizer, question_strs, do_sample=True, temperature=args.temperature) 
+                          for _ in tqdm(range(num_trials))]
+
+        decisions = [[] for _ in range(len(dataset))]
         evidence_acc = np.zeros(len(dataset))
-        model_results = []
-        for t in tqdm(range(num_trials)):
-            question_strs = [example['mission_strs'] for example in dataset]
-            answer_strs = answer_questions(model, tokenizer, question_strs, do_sample=True, temperature=0.5, top_p=0.9)
+        decision_results = []
+        evidence_results = []
+        for k in iters:
+            decision_verdicts, evidence_verdicts = [], []
             for i, example in enumerate(dataset):
-                mission = Mission(example, from_dict=True)
-                node_ids = example['node_ids']                    
-                question_str, answer_str = question_strs[i], answer_strs[i]        
-                evidence, decision = verify_answer(mission, node_ids, answer_str)
-                # decision_acc[i] |= decision
-                if evidence:
-                    evidence_acc[i] = 1
-            if t%output_every == 0:
-                model_results.append(np.mean(evidence_acc))
-        results.append([model_name] + model_results)
-    columns = ['Model Name'] + [f'best_of_{i+1}' for i in iters]
-    results_df = pd.DataFrame(results, columns=columns)
-    output_filename = "Best-of-k_Results.csv"
-    results_df.to_csv(output_filename, index=False)
+                answer_strs = [n_answers_strs[j][i] for j in range(k)]
+                decision, evidence = verify_aggregate(missions[i], node_ids[i], answer_strs)
+                decision_verdicts.append(decision)
+                evidence_verdicts.append(evidence)
+            decision_results.append(np.mean(decision_verdicts))
+            evidence_results.append(np.mean(evidence_verdicts))
+
+        results.append([row['teach'], model_name, run_id, sweep_id] + decision_results + evidence_results)
+        print(results[-1])
+
+    filename =f"csv/eval_k{num_trials}_t{args.temperature}_n{len(dataset)}_{args.sweep_name}.csv"
+    df = pd.DataFrame(results, columns=columns)
+    df.to_csv(filename, index=False)
 
 
     exit(0)
@@ -132,7 +101,7 @@ if __name__ == '__main__':
             mission = Mission(example, from_dict=True)
             node_ids = example['node_ids']                    
             question_str, answer_str = question_strs[i], answer_strs[i]        
-            evidence, decision, works = verify_answer(mission, node_ids, answer_str, return_works=True)
+            decision, evidence, works = verify_answer(mission, node_ids, answer_str, return_works=True)
             worklen = len(works) - 1
             if decision:
                 ans_worklen[i, t] = worklen

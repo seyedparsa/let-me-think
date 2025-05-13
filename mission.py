@@ -4,7 +4,7 @@ import re
 import numpy as np
 import networkx as nx
 from ast import literal_eval
-from utils import gen_graph, dfs, gen_walk
+from utils import gen_graph, dfs, bfs, gen_walk
 from transformers import PreTrainedTokenizer, DataCollatorForLanguageModeling
 
 
@@ -38,12 +38,27 @@ class Mission(object):
                 self.tegrat = self.number_of_nodes() - 1
 
     def search(self, search_type):
-        if search_type == 'optimal':
+        if search_type == 'empty':
+            return []
+        elif search_type == 'optimal':
             return nx.shortest_path(self.graph, self.start, self.target)
+        elif search_type.startswith('optimal-'):
+            rep = int(search_type.split('-')[1])
+            opt = nx.shortest_path(self.graph, self.start, self.target)
+            repeated_opt = [opt[i] for i in range(len(opt)) for _ in range(rep)]
+            return repeated_opt
         elif search_type == 'dfs':
+            return dfs(self.graph, self.start, self.target)
+        elif search_type == 'path':
+            return dfs(self.graph, self.start, self.target, return_mistakes=False)
+        elif search_type == 'dfs-pruned':
+            return dfs(self.graph, self.start, self.target, return_mistakes=True, return_backtrack=False)
+        elif search_type == 'dfs-short':
+            sp = nx.shortest_path(self.graph, self.start, self.target)
             walk = dfs(self.graph, self.start)
-            walk = walk[:walk.index(self.target) + 1]
-            return walk
+            return walk[:len(sp)]
+        elif search_type == 'bfs':
+            return bfs(self.graph, self.start, self.target)
         elif search_type == 'random':
             walk = [self.start]
             while walk[-1] != self.target:
@@ -89,8 +104,8 @@ class MissionTokenizer(PreTrainedTokenizer):
     def encode(self, mission_str):
         tokens = self._tokenize(mission_str)
         token_ids = [self.vocab[token] for token in tokens]
-        if len(token_ids) > self.model_max_length:
-            raise ValueError(f'Token length {len(token_ids)} exceeds max length {self.model_max_length}')
+        # if len(token_ids) > self.model_max_length:
+        #     raise ValueError(f'Token length {len(token_ids)} exceeds max length {self.model_max_length}')
             # print(f'Warning: token length {len(token_ids)} exceeds max length {self.model_max_length}', flush=True)
             # token_ids = token_ids[:self.model_max_length]
         return token_ids
