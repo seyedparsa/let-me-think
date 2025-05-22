@@ -41,6 +41,7 @@ def plot_by_iteration(metric, accuracies=True):
 
 
 def plot_all_by_iteration():
+    plt.rcParams.update({'font.size': 14})
     fig, axs = plt.subplots(2, 2, figsize=(12, 8), sharey='row', sharex=True)
 
     x_pos = np.arange(len(stages))
@@ -89,7 +90,7 @@ def plot_all_by_iteration():
     ax.set_title("(b) Decision Accuracy")
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.set_xticks(range(len(stages)))
-    ax.legend()
+    # ax.legend()
 
     # Plot 3: Valid Thought Lengths (Bottom Left)
     ax = axs[1, 0]
@@ -104,7 +105,7 @@ def plot_all_by_iteration():
     ax.set_xticks(range(len(stages)))
     ax.set_ylabel("CoT Length")
     ax.set_xlabel("RL Iteration")
-    ax.legend()
+    # ax.legend()
 
     # Plot 4: Verified Thought Lengths (Bottom Right)
     ax = axs[1, 1]
@@ -118,11 +119,11 @@ def plot_all_by_iteration():
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     ax.set_xticks(range(len(stages)))
     ax.set_xlabel("RL Iteration")
-    ax.legend()
+    # ax.legend()
 
     plt.tight_layout()
-    plt.savefig("figures/rl_all_metrics.png", dpi=300)
-    print("Figure saved to figures/rl_all_metrics.png")
+    plt.savefig("figures/rl_all_metrics.pdf", dpi=300, format='pdf')
+    print("Figure saved to figures/rl_all_metrics.pdf")
 
 
 

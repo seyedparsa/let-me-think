@@ -14,37 +14,51 @@ torch.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 os.environ['PYTHONHASHSEED'] = str(seed)
 
-sweep_name = "delta_flower_d3-s3-l5-b3_t10e6"
+sweep_name = "flower_d5-s3-l5-b3_t13e6_hl4"
 data_dir = "/work/hdd/bbjr/pmirtaheri/bepatient/data_dir/"
 # data_file = "train_flower_d2-s3-l5-b3_decision_st-far_n500000.json"
-data_file = "val_flower_d3-s3-l5-b3_decision_st-far_n5000.json"
+data_file = "val_flower_d5-s3-l5-b3_decision_st-far_n5000.json"
+path_files = [
+    "path-play-1_n54865_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json",
+    "path-play-2_n118003_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json",
+    "path-play-3_n174020_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json",
+    "path-play-4_n234511_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json",
+    "path-play-5_n285540_on_train_flower_d5-s3-l5-b3_decision_st-far_n500000.json"]
 dataset = load_dataset("json", data_files=os.path.join(data_dir, data_file), split="train")
 # search_types = ["dfs", "dfs-pruned", "walk-30", "walk-28", "walk-26", "walk-24", "walk-22", "walk-20", "walk-18", "walk-16", "walk-14", "path", "walk-12", "walk-10", "walk-8", "optimal"]
 search_types = ["dfs", "optimal", "path", "dfs-pruned"]
+plays = ["path-play-1", "path-play-2", "path-play-3", "path-play-4", "path-play-5"]
 
-for i in range(0, 5):
-    example = dataset[i]
-    mission = Mission(example, from_dict=True)   
-    node_ids = [15,2,57,23,7,3,38,55,58,4,27,37,44,46,41,12,33,43,31,19,29,54,18,11,32,16,30,26,17,6,1,5,60,49,24,34,47,9,42,61,48,14,56,51,52,35,59,25,20,36,45,0,22,10,21,40,39,13,28,50,53,8]
-    directed = False
+# for i in range(0, 5):
+#     example = dataset[i]
+#     mission = Mission(example, from_dict=True)   
+#     node_ids = [15,2,57,23,7,3,38,55,58,4,27,37,44,46,41,12,33,43,31,19,29,54,18,11,32,16,30,26,17,6,1,5,60,49,24,34,47,9,42,61,48,14,56,51,52,35,59,25,20,36,45,0,22,10,21,40,39,13,28,50,53,8]
+#     directed = False
  
-    for search_type in search_types:    
-        work = literal_eval(example[search_type])
-        clues = {'work': work, 'decision': [example['target']]}
-        # node_ids = np.random.permutation(mission.number_of_nodes())
-        mission_str = gen_mission_str(mission, node_ids=node_ids, clues=clues)
-        print(f"Example {i} - Search Type: {search_type}")
-        print(mission_str)
-        print(work)
+#     for search_type in search_types:    
+#         work = literal_eval(example[search_type])
+#         clues = {'work': work, 'decision': [example['target']]}
+#         # node_ids = np.random.permutation(mission.number_of_nodes())
+#         mission_str = gen_mission_str(mission, node_ids=node_ids, clues=clues)
+#         print(f"Example {i} - Search Type: {search_type}")
+#         print(mission_str)
+#         print(work)
 
-exit(0)
+# exit(0)
 results = []
 
-walk_lengths = {search_type : [] for search_type in search_types}
+walk_lengths = {search_type : [] for search_type in search_types + plays}
 for example in dataset:
     for search_type in search_types:
         walk_lengths[search_type].append(len(literal_eval(example[search_type])))
-for search_type in search_types:
+
+for i, play in enumerate(plays):
+    play_path = os.path.join(data_dir, path_files[i])
+    play_dataset = load_dataset("json", data_files=play_path, split="train")
+    for example in play_dataset:
+        walk_lengths[play].append(len(literal_eval(example[play])))
+
+for search_type in search_types + plays:
     walk_lengths[search_type] = np.mean(walk_lengths[search_type])
     print(f"{search_type}: {walk_lengths[search_type]}")
     results.append([search_type, walk_lengths[search_type]])

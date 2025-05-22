@@ -1,14 +1,14 @@
 seed: 42
-teach: path-play-1 #fix
+teach: walk-50 #fix
 # num_train: 50000
-# num_tokens: 7000000 #fix
-num_epochs: 20 #fix
-num_node_tokens: 42 #fix
+num_tokens: 13000000 #fix
+num_epochs: 200 #fix
+num_node_tokens: 102 #fix
 context_length: 400 #fix
 batch_size: 1000
-eval_steps: 500
-log_steps: 500
-save_steps: 500
+eval_steps: 1000
+log_steps: 1000
+save_steps: 1000
 gradient_accumulation_steps: 1
 weight_decay: 0.05
 warmup_ratio: 0.1
@@ -18,8 +18,8 @@ save_total_limit: 2
 model_config: configs/model_config.yaml
 output_dir: /work/hdd/bbjr/pmirtaheri/bepatient/output_dir
 data_dir: /work/hdd/bbjr/pmirtaheri/bepatient/data_dir
-train_file: path-play-1_n3357_on_val_flower_d1-s3-l5-b3_decision_st-far_n5000.json #fix
-val_file: val_flower_d1-s3-l5-b3_decision_st-far_n5000.json #fix
+train_file: train_flower_d5-s3-l5-b3_decision_st-far_n500000.json #fix
+val_file: val_flower_d5-s3-l5-b3_decision_st-far_n5000.json #fix
 wandb_config:
   project: bepatient
   entity: seyedparsa

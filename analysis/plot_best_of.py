@@ -4,8 +4,9 @@ from analysis_utils import confidence_interval, pres
 import matplotlib.pyplot as plt
 import argparse
 import yaml
+import matplotlib
 
-order = ["dfs-pruned", "dfs", "path", "optimal"]
+order = ["dfs-pruned", "path", "optimal"]
 
 def compare_models(log_num_trial, temperature, num_eval, sweep_name, depth):
      # Construct the file path
@@ -22,7 +23,7 @@ def compare_models(log_num_trial, temperature, num_eval, sweep_name, depth):
      maj_columns = [f'maj_{2 ** i}' for i in range(log_num_trial + 1)]
      any_columns = [f'any_{2 ** i}' for i in range(log_num_trial + 1)]
      # Create subplots for maj_values and any_values
-     fig, axes = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
+     fig, axes = plt.subplots(1, 2, figsize=(18, 6), sharey=True)
      # Set x-axis labels as 2**k for both subplots
      axes[0].set_xticks(np.arange(log_num_trial + 1))
      axes[0].set_xticklabels([f'{2**i}' for i in range(log_num_trial + 1)])
@@ -40,48 +41,52 @@ def compare_models(log_num_trial, temperature, num_eval, sweep_name, depth):
           ci_lower, ci_upper = confidence_interval(maj_values * num_eval, num_eval)
           axes[0].errorbar(np.arange(log_num_trial + 1), maj_values, 
                yerr=[maj_values - ci_lower, ci_upper - maj_values],
-               fmt='none', ecolor=line_maj.get_color(), capsize=3, alpha=0.8)
+               fmt='none', ecolor=line_maj.get_color(), capsize=0, alpha=1)
 
           # Plot any_values without markers
+          any_values = any_values + (1 - any_values) * 0.5
           line_any, = axes[1].plot(np.arange(log_num_trial + 1), any_values, 
                label=f"{pres(method)}")
-          # Add error bars for any_values
+          # Add error bars for any_values          
           ci_lower, ci_upper = confidence_interval(any_values * num_eval, num_eval)
           axes[1].errorbar(np.arange(log_num_trial + 1), any_values, 
                yerr=[any_values - ci_lower, ci_upper - any_values],
-               fmt='none', ecolor=line_any.get_color(), capsize=3, alpha=0.8)
+               fmt='none', ecolor=line_any.get_color(), capsize=0, alpha=1)
 
      
      # Add labels, title, and legend for maj_values plot
      axes[0].set_xlabel('Number of Sampled Outputs')
-     axes[0].set_ylabel('Majority Decision Accuracy')
-     axes[0].set_title('(a) Majority Decision Accuracy of Parallel Scaling CoT Strategies')
+     axes[0].set_ylabel('Accuracy')
+     axes[0].set_title('Parallel Scaling of Majority Decision')
      #     axes[0].legend(loc='lower right')
      axes[0].grid(axis='y', linestyle='--', alpha=0.7)
 
      # Add labels, title, and legend for any_values plot
-     analytical_accuracy = 1 - (1-2**depth/(3 * 4**(depth-1)))**(2**np.arange(log_num_trial + 1))          
+     analytical_accuracy = 1 - (1-2**depth/(3 * 4**(depth-1)))**(2**np.arange(log_num_trial + 1))
+     analytical_accuracy = analytical_accuracy + (1 - analytical_accuracy) * 0.5
      axes[1].plot(np.arange(log_num_trial + 1), analytical_accuracy,
-          label=r"$P(\exists i \in [n] : \mathrm{DFS}_i \in D(\mathrm{Path}))$", color='green', linestyle='--')
+          label=r"Predicted Path", color='C1', linestyle='--')
      analytical_accuracy = 1 - (1-1/(3 * 4**(depth-1)))**(2**np.arange(log_num_trial + 1))     
+     analytical_accuracy = analytical_accuracy + (1 - analytical_accuracy) * 0.5
      axes[1].plot(np.arange(log_num_trial + 1), analytical_accuracy,
-          label=r"$P(\exists i \in [n] : \mathrm{DFS}_i \in D(\mathrm{S\text{-}Path}))$", color='red', linestyle='--')
+          label=r"Predicted Shortest-Path", color='C2', linestyle='--')
      
      axes[1].set_xlabel('Number of Sampled Outputs')
-     axes[1].set_ylabel('Any Evidence Accuracy')
-     axes[1].set_title('(b) Any Evidence Accuracy of Parallel Scaling CoT Strategies')
-     axes[1].legend()
+     # axes[1].set_ylabel('Best-of-N Accuracy')
+     axes[1].set_title('Parallel Scaling of Best-of-N')
+     axes[1].legend(fontsize=14, loc='lower right')
      axes[1].grid(axis='y', linestyle='--', alpha=0.7)
 
      # Adjust layout
      plt.tight_layout()
 
      # Show the plot
-     plt.savefig(f"figures/maj_any_{2 ** log_num_trial}_{sweep_name}.png", dpi=300)
-     print(f"Saved figure to figures/maj_any_{2 ** log_num_trial}_{sweep_name}.png")
+     plt.savefig(f"figures/maj_any_{2 ** log_num_trial}_{sweep_name}.pdf", dpi=300, format='pdf')
+     print(f"Saved figure to figures/maj_any_{2 ** log_num_trial}_{sweep_name}.pdf")
 
 # Example usage
 if __name__ == "__main__":
+     matplotlib.rcParams.update({'font.size': 16})
      parser = argparse.ArgumentParser()
      parser.add_argument('--log_num_trial', type=int, default=6)
      parser.add_argument('--temperature', type=float, default=1.0)

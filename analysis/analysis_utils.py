@@ -9,7 +9,7 @@ import numpy as np
 
 def pres(word):    
     if word == 'optimal':
-        return 'S-Path'
+        return 'Shortest-Path'
     elif word == 'path':
         return 'Path'
     elif word == 'dfs':
@@ -25,6 +25,9 @@ def pres(word):
     elif 'play' in word:
         teach, _, num_play = re.split('[-_]', word)
         return f"{pres(teach)} RL-{num_play}"
+    elif 'walk' in word:
+        _, L = re.split('[-_]', word)
+        return f"Walk-{L}"
     else:
         return ' '.join([word.capitalize() for word in re.split('[-_]', word)])    
     

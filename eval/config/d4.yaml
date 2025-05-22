@@ -17,5 +17,6 @@ path-play-2: path-play-2_n145205_on_train_flower_d4-s3-l5-b3_decision_st-far_n50
 path-play-3: path-play-3_n205619_on_train_flower_d4-s3-l5-b3_decision_st-far_n500000.json
 # path-play-4: path-play-4_n273256_on_train_flower_d4-s3-l5-b3_decision_st-far_n500000.json
 path-play-4: path-play-4_g_n341930_on_train_flower_d4-s3-l5-b3_decision_st-far_n500000.json
+path-play-5: path-play-5_n330683_on_train_flower_d4-s3-l5-b3_decision_st-far_n500000.json
 # path-play-2: path-play-2_n127731_on_train_flower_d4-s3-l5-b3_decision_st-far_n500000.json
 # path-play-3: path-play-3_n179108_on_train_flower_d4-s3-l5-b3_decision_st-far_n500000.json

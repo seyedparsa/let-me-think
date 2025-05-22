@@ -1,12 +1,14 @@
 import json
 import random
 import matplotlib.pyplot as plt
+import matplotlib
 from analysis_utils import pres
 import numpy as np
 from tqdm import tqdm
 import yaml
 import argparse
 from analysis_utils import confidence_interval
+
 
 
 def load_generations(sweep_name, teach, temperature):
@@ -80,17 +82,23 @@ def plot_within_budget_accuracy(sweep_name, teach, budget_type, temperature = 1.
         x = [cost(sequential, parallel, budget_type) for sequential in prefix_length]        
         
         if parallel == 1:
-            greedy_accuracy = [best_of_n_evidence_accuracy([decodings], num_data, sequential) for sequential in prefix_length]
-            plt.plot(x, greedy_accuracy, label="greedy", linestyle='--', color='#4682B4')
-        
-        plt.plot(x, accuracy, label=f"any@{parallel}")
+            greedy_accuracy = np.array([best_of_n_evidence_accuracy([decodings], num_data, sequential) for sequential in prefix_length])
+            greedy_accuracy = greedy_accuracy + (1 - greedy_accuracy) * 0.5
+            cli_lower, cli_upper = confidence_interval(np.array(greedy_accuracy) * num_data, num_data)
+            # plt.errorbar(x, greedy_accuracy, yerr=[greedy_accuracy - cli_lower, cli_upper - greedy_accuracy], label="Greedy", linestyle='--', color='#4682B4', elinewidth=1)
+            plt.plot(x, greedy_accuracy, label="Greedy", linestyle='--', color='#4682B4')
+        else:
+            accuracy = accuracy + (1 - np.array(accuracy)) * 0.5
+            cli_lower, cli_upper = confidence_interval(np.array(accuracy) * num_data, num_data)
+            # plt.errorbar(x, accuracy, yerr=[accuracy - cli_lower, cli_upper - accuracy], label=pres(teach), elinewidth=1)
+            plt.plot(x, accuracy, label=f"Best-of-{parallel}")
 
-    plt.ylabel("Any Evidence Accuracy")
+    plt.ylabel("Best-of-N Accuracy")
     if budget_type == "token":
-        plt.title(f"Accuracy of Parallel Scalings of {pres(teach)} Model vs Total Tokens Budget")
-        plt.xlabel("Total Tokens Budget")
+        plt.title(f"Accuracy Across Total CoT Token Budgets")
+        plt.xlabel("Total CoT Token Budget")
     else:
-        plt.title(f"Accuracy of Parallel Scalings vs Sequential Scale of {pres(teach)}")
+        plt.title(f"Accuracy Across Sequential Scales")
         plt.xlabel("Sequential Scale")
 
     plt.legend(loc='lower right')
@@ -99,6 +107,8 @@ def plot_within_budget_accuracy(sweep_name, teach, budget_type, temperature = 1.
     plt.tight_layout()
     plt.savefig(f"figures/{sweep_name}_{teach}_t{temperature}_prefix_{budget_type}_budget.png", dpi=300)
     print(f"Saved figure to figures/{sweep_name}_{teach}_t{temperature}_prefix_{budget_type}_budget.png")
+    plt.savefig(f"figures/{sweep_name}_{teach}_t{temperature}_prefix_{budget_type}_budget.pdf", dpi=300, format='pdf')
+    print(f"Saved figure to figures/{sweep_name}_{teach}_t{temperature}_prefix_{budget_type}_budget.pdf")
 
 
 def plot_mixed_scaling(sweep_name, teach, temperature = 1.0):
@@ -122,24 +132,26 @@ def plot_mixed_scaling(sweep_name, teach, temperature = 1.0):
         accuracies.append(accuracy)
     # Make sure accuracies shape = (len(parallel_values), len(seq_values))
     accuracies = np.array(accuracies)
-    X, Y = np.meshgrid(seq_values, parallel_values)
+    accuracies = accuracies + (1 - accuracies) * 0.5
+    # X, Y = np.meshgrid(seq_values, parallel_values)
 
     # Define extent to align pixel centers
-    dx = (seq_values[1] - seq_values[0]) / 2
-    dy = (parallel_values[1] - parallel_values[0]) / 2
-    extent = [seq_values[0] - dx, seq_values[-1] + dx, parallel_values[0] - dy, parallel_values[-1] + dy]
+    # dx = (seq_values[1] - seq_values[0]) / 2
+    # dy = (parallel_values[1] - parallel_values[0]) / 2
+    # extent = [seq_values[0] - dx, seq_values[-1] + dx, parallel_values[0] - dy, parallel_values[-1] + dy]
 
     # Plot heatmap first
-    plt.figure(figsize=(8, 6))
-    plt.imshow(
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(
         accuracies,
         aspect='auto',
         cmap='viridis',
         origin='lower',
-        extent=extent,
-        vmin=0.0, vmax=1.0  # or use np.min(accuracies), np.max(accuracies)
+        # extent=extent,
+        vmin=0.5, vmax=1.0  # or use np.min(accuracies), np.max(accuracies)
     )
-    plt.colorbar(label="Any Evidence Accuracy")
+    # ax.colorbar(label="Accuracy")
     # for i in range(len(parallel_values)):
     #     for j in range(len(seq_values)):
     #         value = accuracies[i, j]
@@ -152,36 +164,41 @@ def plot_mixed_scaling(sweep_name, teach, temperature = 1.0):
     #         )
 
     # Define levels and colors
-    levels = [0.1, 0.5, 0.9]
-    colors = ['white'] * (len(levels) - 1) + ['red']  # Make 0.9 red
+    levels = [0.55, 0.6, 0.7, 0.8, 0.9]
+    powers = np.array([2**i for i in [0,2,3,4,5,6]])
+    ax.set_yticks(ticks=(powers-1), labels=powers)
+    ax.set_xticks(ticks=range(len(seq_values))[::4], labels=seq_values[::4])
+    fig.colorbar(im, label="Best-of-N Accuracy")
+    # colors = ['white'] * (len(levels)) + ['red']  # Make 0.9 red
 
     # Plot contours
-    contour = plt.contour(X, Y, accuracies, levels=levels, colors=colors, linewidths=1.5)
-    plt.clabel(contour, inline=True, fontsize=8, fmt="%.1f")
+    contour = ax.contour(list(range(len(seq_values))), list(range(len(parallel_values))), accuracies, levels=levels, colors="white", linewidths=1.5)
+    plt.clabel(contour, inline=True, fmt="%.2f")
 
     # Y-axis ticks
-    ytick_vals = [1] + [2**i for i in range(2, exp+1)]
-    ytick_labels = ['1 greedy'] + [str(v) for v in ytick_vals[1:]]
-    plt.yticks(ticks=ytick_vals, labels=ytick_labels)
+    # ytick_vals = [1] + [2**i for i in range(2, exp+1)]
+    # ytick_labels = ['1 greedy'] + [str(v) for v in ytick_vals[1:]]
+    # plt.yticks(ticks=ytick_vals, labels=ytick_labels)
 
     # X-axis ticks
-    plt.xticks(ticks=seq_values[::4])
+    # plt.xticks(ticks=seq_values[::4])
 
     # Labels and save    
-    plt.xlabel("Sequential Scale")
-    plt.ylabel("Parallel Scale")
-    plt.title(f"(a) Accuracy of Parallel and Sequential Scalings of {pres(teach)} Model")
-    plt.tight_layout()
-    plt.savefig(f"figures/{sweep_name}_{teach}_t{temperature}_accuracy_contours.png", dpi=300)
-    print(f"Saved figure to figures/{sweep_name}_{teach}_t{temperature}_accuracy_contours.png")
+    ax.set_xlabel("Sequential Scale")
+    ax.set_ylabel("Parallel Scale")
+    ax.set_title(f"Parallel and Sequential Scaling of Transformer\n Trained on Graph Reasoning Task")
+    fig.tight_layout()
+    plt.savefig(f"figures/{sweep_name}_{teach}_t{temperature}_accuracy_contours.pdf", dpi=300, format='pdf')
+    print(f"Saved figure to figures/{sweep_name}_{teach}_t{temperature}_accuracy_contours.pdf")
 
 
 def plot_prefix_accuracies(sweep_name, teaches):
-    plt.figure(figsize=(8.5, 6))
+    plt.rcParams.update({'font.size': 16})
+    plt.figure(figsize=(8, 6))
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
-    plt.axvline(x=depth * 5 + 1, color='green', linestyle='--', label=r"max |Path|", zorder=0, alpha=0.3)
-    seq_values = range(depth * 3 + 1, 70 + 1, 1)
+    plt.axvline(x=depth * 5 + 1, color='red', linestyle='--', label="Longest Path", zorder=0, alpha=1)
+    seq_values = range(depth * 3 + 1, 72 + 1, 1)
     for teach in teaches:
         decodings_file = f"{eval_dir}/generations/{sweep_name}_{teach}_greedy.json"
         with open(decodings_file, 'r') as f:
@@ -190,26 +207,32 @@ def plot_prefix_accuracies(sweep_name, teaches):
         accuracy = []
         for sequential in seq_values:
             accuracy.append(best_of_n_evidence_accuracy([decodings], num_data, sequential))
-        # cli_lower, cli_upper = confidence_interval(np.array(accuracy) * num_data, num_data)
-        # plt.errorbar(seq_values, accuracy, yerr=[accuracy - cli_lower, cli_upper - accuracy], label=pres(teach))
-        plt.plot(seq_values, accuracy, label=pres(teach))
+        cli_lower, cli_upper = confidence_interval(np.array(accuracy) * num_data, num_data)
+        eb = plt.errorbar(seq_values, accuracy, yerr=[accuracy - cli_lower, cli_upper - accuracy], label=pres(teach), elinewidth=1)
+        # eb[-1][0].set_alpha(0.3)  # Set the alpha of the error bars
+        # plt.plot(seq_values, accuracy, label=pres(teach))
     plt.ylabel("Evidence Accuracy")
     plt.yticks(np.arange(0, 1.1, 0.1))
     
-
-    plt.title(f"(b) Accuracy of Sequential Scalings of CoT Strategies on Bridge({depth}) Task")
+    # plt.title(f"Sequential Scaling of CoT Strategies on Bridge({depth})")
+    plt.title(f"Sequential Scaling of CoT Strategies on Bridge({depth})")
     plt.xlabel("Sequential Scale")
     plt.xticks(ticks=seq_values[::4])
 
-    plt.legend()
+    handles, labels = plt.gca().get_legend_handles_labels()
+    desired_order = [1 + i for i in range(len(teaches))] + [0]
+    handles = [handles[i] for i in desired_order]
+    labels = [labels[i] for i in desired_order]
+    plt.legend(handles, labels)        
     # plt.grid(True)
     # plt.xticks(range(0, 31, 2))
     # plt.ylim(0, 0.8)
     plt.tight_layout()
-    plt.savefig(f"figures/{sweep_name}_gd_prefix_accuracies.png", dpi=300)
-    print(f"Saved figure to figures/{sweep_name}_gd_prefix_accuracies.png")
+    plt.savefig(f"figures/{sweep_name}_gd_prefix_accuracies.pdf", dpi=300, format='pdf')
+    print(f"Saved figure to figures/{sweep_name}_gd_prefix_accuracies.pdf")
 
 if __name__ == "__main__":
+    matplotlib.rcParams.update({'font.size': 16})
     parser = argparse.ArgumentParser(description='Plot prefix accuracy')
     parser.add_argument('--depth', type=int, default=5, help='Depth of the model')
     parser.add_argument('--teaches', type=str, nargs='+', default=['dfs-pruned'], help='Teach types (cot, greedy)')
@@ -229,6 +252,6 @@ if __name__ == "__main__":
     temperature = args.temperature
     for teach in teaches:
         plot_within_budget_accuracy(sweep_name, teach, budget_type, temperature)
-        plot_mixed_scaling(sweep_name, teach, temperature)
+        # plot_mixed_scaling(sweep_name, teach, temperature)
         break
-    plot_prefix_accuracies(sweep_name, teaches)
+    # plot_prefix_accuracies(sweep_name, teaches)

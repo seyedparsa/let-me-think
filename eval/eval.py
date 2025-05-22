@@ -189,6 +189,7 @@ if __name__ == '__main__':
     if teaches_to_eval is None:
         teaches_to_eval = df['teach'].unique()
     print(df)
+    print(df.columns)
     print(f"Evaluating models with teaches: {teaches_to_eval}")
     
     results = []
@@ -225,8 +226,11 @@ if __name__ == '__main__':
         else:
             metrics = evaluate_model(model, tokenizer, dataset, config, do_sample=args.sample, temperature=args.temperature)
         metrics = {key.replace("eval_", "") : value for key, value in metrics.items()}
-        eval_row = {'teach' : teach}
-        eval_row.update({key : value for key, value in metrics.items() if key in df.columns or key.startswith("avg_") or key.startswith("std_")})
+        print(metrics)
+        eval_row = {'teach' : teach, 'name' : model_name, 'sweep_id' : sweep_id, 'run_id' : row['run_id']}
+        key_prefixes = ['avg', 'std', 'maj', 'any']
+        eval_row.update({key : value for key, value in metrics.items() if key in df.columns or any(key.startswith(prefix) for prefix in key_prefixes)})
+        print(eval_row)
         # print(eval_row)        
         results.append(eval_row)
         # for key, value in metrics.items():
@@ -251,8 +255,7 @@ if __name__ == '__main__':
     else:
         file_name += f"gd_"
     file_name += f"n{len(dataset)}.csv"
-    exit(0)
-    if args.scale and os.path.exists(file_name):
+    if args.scale and args.until_learns and os.path.exists(file_name):
         df.to_csv(file_name, index=False, mode='a', header=False)
     else:
         df.to_csv(file_name, index=False)
