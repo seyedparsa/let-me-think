@@ -84,8 +84,11 @@ def verify_aggregate(mission, node_ids, answer_strs, works_list=None, seq_budget
     decisions = [decision[0] for decision in decision_list if len(decision) == 1]
     decision = None
     if decisions:
-        max_count = max(decisions.count(x) for x in set(decisions))
-        decision = random.choice([d for d in set(decisions) if decisions.count(d) == max_count])        
+        target_count, tegrat_count = decisions.count(mission.target), decisions.count(mission.tegrat)
+        if target_count == tegrat_count:
+            decision = random.choice([mission.target, mission.tegrat])
+        else:
+            decision = mission.target if target_count > tegrat_count else mission.tegrat
     decision_verdict = (decision is not None and decision == mission.target)
     return decision_verdict, evidence_verdict
 
@@ -203,11 +206,11 @@ def create_compute_metrics(model, tokenizer, eval_dataset, play_file=None, **kwa
                 # print(f'Evidence: {evidence}')
 
         print(f"Verified: {len(verified)}")
-        for i in range(min(1000, len(verified))):
+        for i in range(min(10, len(verified))):
             print(f'Works: {verified[i]}')
         print()
         print(f"Non-verified: {len(non_verified)}")
-        for i in range(min(1000, len(non_verified))):
+        for i in range(min(10, len(non_verified))):
             print(f'Works: {non_verified[i]}')
                 
         valid_edge_acc = np.mean(valid_edge_acc)
@@ -272,7 +275,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='configs/training_config.yaml')
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--resume", type=bool, default=True)
+    parser.add_argument("--resume", type=bool, default=False)
     parser.add_argument("--resume_teach", type=str)
     parser.add_argument("--resume_depth", type=int, default=3)
 
@@ -367,7 +370,7 @@ if __name__ == '__main__':
     
     if config.get('num_train') is None and config.get('num_tokens') is None:
         config['num_train'] = len(train_dataset['train'])
-    print(f"Number of training samples: {config['num_train']}")
+    # print(f"Number of training samples: {config['num_train']}")
     # set up model and tokenizer: from_pretrained
 
     run_name = get_run_name(config)
@@ -398,9 +401,11 @@ if __name__ == '__main__':
     
 
     req_context_length = 0
+    max_work_length = 0
     # tokenize dataset
     def tokenize(example, idx):
         global req_context_length
+        global max_work_length
         mission = Mission(example, from_dict=True)
         clues = {}      
         if teach in example:
@@ -413,9 +418,11 @@ if __name__ == '__main__':
         #     print(f"Mission {idx}: {mission_str}")
         token_ids = tokenizer.encode(mission_str)
         req_context_length = max(req_context_length, len(token_ids))
+        max_work_length = max(max_work_length, len(clues['work']))
         return {'input_ids': token_ids, 'mission_strs': mission_str, 'node_ids': node_ids} 
 
     train_dataset = train_dataset.map(tokenize, with_indices=True, batched=False)['train']
+    print(f"Max work length: {max_work_length}")
     val_dataset = val_dataset.map(tokenize, with_indices=True, batched=False)['train']
     # datasets = {'train': train_dataset, 'val': val_dataset}
     # tokenized_datasets = datasets.map(tokenize, with_indices=True, batched=False) #, remove_columns=datasets["train"].column_names)
@@ -479,7 +486,7 @@ if __name__ == '__main__':
         # callbacks=[EarlyStoppingCallback(early_stopping_patience=20)],
         compute_metrics=create_compute_metrics(model, tokenizer, val_dataset),
     )
-    print(trainer.evaluate())
+    # print(trainer.evaluate())
     
     # train
     # if args.resume:
