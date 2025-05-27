@@ -401,4 +401,6 @@ FodyWeavers.xsd
 
 # Wandb
 wandb/
-scripts/submit.sh
+
+scripts/
+configs/
