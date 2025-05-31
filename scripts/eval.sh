@@ -1,1 +1,0 @@
-python eval.py --training_config configs/training_config.yaml --output_dir=/work/hdd/bbjr/pmirtaheri/bepatient/output_dir --ckpt=comblock_d10-w5_decision_st-random_p102_dfs_n100000_e100_lr0.001_wd0.01_lrsclinear/checkpoint-17000 --data_dir=/work/hdd/bbjr/pmirtaheri/bepatient/data_dir --data_file=val_comblock_d10-w5_decision_st-far_n1000.json

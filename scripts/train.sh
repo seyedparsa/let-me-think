@@ -1,1 +1,0 @@
-accelerate launch --config_file configs/accelerate.yaml train.py --no-wandb --config configs/training_config.yaml # --resume --ckpt=checkpoint-4500
