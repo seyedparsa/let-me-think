@@ -1,5 +1,7 @@
 # Let me think!
 
+![Parallel and Sequential Scaling](figures/figure1.png)
+
 ## Running the code
 1. Generate the dataset
 ```bash
